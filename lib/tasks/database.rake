@@ -3,44 +3,24 @@ original_db_structure_dump_task = Rake.application.instance_variable_get(:@tasks
 
 namespace :db do
   namespace :structure do
+    desc 'Dump the database structure to db/structure.sql. Specify another file with DB_STRUCTURE=db/my_structure.sql'
+    task :dump => [:environment, :load_config] do
+      config = current_config
+      filename = ENV['DB_STRUCTURE'] || File.join(Rails.root, "db", "structure.sql")
+      case config['adapter']
+        when /mysql/
+          require 'db_structure_ext'
+          ActiveRecord::Base.establish_connection(config)
+          connection_proxy = DbStructureExt::MysqlConnectionProxy.new(ActiveRecord::Base.connection)
+          File.open(filename, "w+") { |f| f << connection_proxy.structure_dump }
 
-    desc "Dump the database structure to a SQL file"
-    task :dump, [:env, :file] => :environment do |t, args|
-      env  = args[:env]  || ENV['RAILS_ENV'] || 'development'
-      file = args[:file] || "db/#{env}_structure.sql"
-
-      ActiveRecord::Base.establish_connection(env)
-
-      puts "Dumping #{env} database to #{file}"
-
-      case adapter_name = ActiveRecord::Base.connection.adapter_name
-      when /mysql/i
-        require 'db_structure_ext'
-        connection_proxy = DbStructureExt::MysqlConnectionProxy.new(ActiveRecord::Base.connection)
-        File.open(file, "w+") { |f| f << connection_proxy.structure_dump }
-      else
-        original_db_structure_dump_task.invoke
+          if connection_proxy.supports_migrations?
+            File.open(filename, "a") { |f| f << connection_proxy.dump_schema_information }
+          end
+        else
+          original_db_structure_dump_task.invoke
       end
+      #db_namespace['structure:dump'].reenable
     end
-
-    desc "Load SQL structure file to the database"
-    task :load, [:env, :file] => :environment do |t, args|
-      env  = args[:env]  || ENV['RAILS_ENV'] || 'development'
-      file = args[:file] || "db/#{env}_structure.sql"
-
-      ActiveRecord::Base.establish_connection(env)
-
-      puts "Loading #{file} structure to #{env} database"
-
-      case adapter_name = ActiveRecord::Base.connection.adapter_name
-      when /mysql/i
-        require 'db_structure_ext'
-        connection_proxy = DbStructureExt::MysqlConnectionProxy.new(ActiveRecord::Base.connection)
-        connection_proxy.structure_load(file)
-      else
-        raise "Task not supported by #{adapter_name.inspect} adapter"
-      end
-    end
-
   end
 end
