@@ -14,7 +14,7 @@ module DbStructureExt
       }
 
       table_names.each do |table_name|
-        structure << select_one("SHOW CREATE TABLE `#{table_name}`")["Create Table"]
+        structure << select_one("SHOW CREATE TABLE `#{table_name}`")["Create Table"].gsub(/AUTO_INCREMENT=\d+/, '')
         structure << ";\n\n"
       end
 
