@@ -46,7 +46,7 @@ module DbStructureExt
         structure << ";\n\n"
         structure << "DROP VIEW IF EXISTS #{table_name}"
         structure << ";\n\n"
-        structure << select_one("SHOW CREATE VIEW #{table_name}")["Create View"] 
+        structure << select_one("SHOW CREATE VIEW #{table_name}")["Create View"].gsub("`#{current_database}`.", '')
         structure << ";\n\n"
       end
 
